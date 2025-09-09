@@ -4,15 +4,14 @@
 #   pip install requests --trusted-host pypi.org --trusted-host files.pythonhosted.org --trusted-host pypi.python.org
 # ------------------------------
 import os
-import re
-import base64
-from msal import ConfidentialClientApplication
+import datetime
 import requests
-import json
-import traceback
 import shutil
 import stat
-import datetime
+import base64
+from msal import ConfidentialClientApplication
+import json
+import traceback
 
 
 # ==============================
@@ -26,9 +25,9 @@ PROCESSING_FILE_NAME = '.Processing'
 LOG_FILE_NAME = os.path.basename(__file__).replace('.py', '.log')
 
 # Microsoft Entra ID (Azure AD) アプリケーション登録情報
-TENANT_ID = 'XXXXXXXXXX'
-CLIENT_ID = 'XXXXXXXXXX'
-CLIENT_SECRET = 'XXXXXXXXXX'
+TENANT_ID = 'XXXXXXXXXXXXXXX'
+CLIENT_ID = 'XXXXXXXXXXXXXXX'
+CLIENT_SECRET = 'XXXXXXXXXXXXXXX'
 
 # 監視対象メールアドレス (受信トレイを監視)
 MONITOR_EMAIL = 'system-rakurakuhanbai@hakuto.co.jp'
