@@ -1,6 +1,7 @@
 # ------------------------------
 # 事前設定
-#   pip install msal requests
+#   pip install msal --trusted-host pypi.org --trusted-host files.pythonhosted.org
+#   pip install requests --trusted-host pypi.org --trusted-host files.pythonhosted.org --trusted-host pypi.python.org
 # ------------------------------
 import os
 import re
@@ -106,7 +107,7 @@ def fetch_target_mails(access_token):
   url = f'{GRAPH_ENDPOINT}/users/{MONITOR_EMAIL}/mailFolders/Inbox/messages'
   params = {
     '$orderby': 'receivedDateTime asc',  # 受信日時の古いものから順
-    '$top': 20               # 最大20件を取得
+    '$top': 20                           # 最大20件を取得
   }
   response = requests.get(url, headers=headers, params=params)
   
