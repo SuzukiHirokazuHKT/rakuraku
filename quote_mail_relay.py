@@ -23,6 +23,7 @@ PROCESSING_FILE_NAME = '.Processing'
 
 # ログファイル
 LOG_FILE_NAME = os.path.basename(__file__).replace('.py', '.log')
+LOG_FILE_PATH = os.path.join(PROCESSING_FILE_DIR, LOG_FILE_NAME)
 
 # Microsoft Entra ID (Azure AD) アプリケーション登録情報
 TENANT_ID = 'XXXXXXXXXXXXXXX'
@@ -53,14 +54,14 @@ GRAPH_ENDPOINT = 'https://graph.microsoft.com/v1.0'
 # ==============================
 # Logger
 # ==============================
-def print_log(level, msg):
+def print_log(level, msg, log_file_path=None):
   now = datetime.datetime.now()
   ts = now.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
   print(f'[{ts}][{os.getpid()}][{level}] {msg}')
   
-  log_file_path = os.path.join(PROCESSING_FILE_DIR, LOG_FILE_NAME)
-  with open(log_file_path, 'a') as f:
-    f.write(f'[{ts}][{level}] {msg}\n')
+  if log_file_path:
+    with open(log_file_path, 'a') as f:
+      f.write(f'[{ts}][{level}] {msg}\n')
 
 # ==============================
 # 多重起動防止処理
@@ -68,19 +69,19 @@ def print_log(level, msg):
 def check_and_create_processing_file():
   processing_file_path = os.path.join(PROCESSING_FILE_DIR, PROCESSING_FILE_NAME)
   if os.path.exists(processing_file_path):
-    print_log('WARN', 'ロックファイルが存在している（他プロセスで処理が実行中）ため本処理を終了します')
+    print_log('WARN', 'ロックファイルが存在している（他プロセスで処理が実行中）ため本処理を終了します', LOG_FILE_PATH)
     return False
   else:
     with open(processing_file_path, 'w') as f:
       f.write('') # 0バイトファイルを作成
-    print_log('INFO', 'ロックファイルを作成しました')
+    print_log('INFO', 'ロックファイルを作成しました', LOG_FILE_PATH)
     return True
 
 def delete_processing_file():
   processing_file_path = os.path.join(PROCESSING_FILE_DIR, PROCESSING_FILE_NAME)
   if os.path.exists(processing_file_path):
     os.remove(processing_file_path)
-    print_log('INFO', 'ロックファイルを削除しました')
+    print_log('INFO', 'ロックファイルを削除しました', LOG_FILE_PATH)
 
 # ==============================
 # Microsoft Graph API のアクセストークン取得 (OAuth2)
@@ -123,9 +124,9 @@ def fetch_target_mails(access_token):
       filtered.append(m)  
   
   if filtered:
-    print_log('INFO', f'対象メールは[{len(filtered)}]件です')
+    print_log('INFO', f'対象メールは[{len(filtered)}]件です', LOG_FILE_PATH)
   else:
-    print_log('WARN', '対象メールはありません')
+    print_log('WARN', '対象メールはありません', LOG_FILE_PATH)
   
   return filtered
 
@@ -174,7 +175,7 @@ def download_attachments(access_token, mail_id, download_dir):
   os.makedirs(download_dir, exist_ok=True)
   
   attachments_url = f'{GRAPH_ENDPOINT}/users/{MONITOR_EMAIL}/messages/{mail_id}/attachments'
-  print_log('INFO', '添付ファイルをダウンロードします')
+  print_log('INFO', '添付ファイルをダウンロードします', LOG_FILE_PATH)
   response = requests.get(attachments_url, headers=headers)
   response.raise_for_status()
   attachments_data = response.json()
@@ -191,11 +192,11 @@ def download_attachments(access_token, mail_id, download_dir):
         
         with open(file_path, 'wb') as f:
           f.write(file_content)
-        print_log('INFO', f'添付ファイルのダウンロードが完了しました: {file_name}')
+        print_log('INFO', f'添付ファイルのダウンロードが完了しました: {file_name}', LOG_FILE_PATH)
         downloaded_paths.append(file_path)
   
   if not downloaded_paths:
-    print_log('WARN', '添付ファイルは見つかりません...')
+    print_log('WARN', '添付ファイルは見つかりません...', LOG_FILE_PATH)
     
   return downloaded_paths
 
@@ -272,14 +273,14 @@ def move_mail_to_processed_folder(access_token, mail_id):
     response = requests.post(create_folder_url, headers=headers, data=json.dumps(create_folder_payload))
     response.raise_for_status()
     processed_folder_id = response.json()['id']
-    print_log('INFO', f'[{PROCESSED_FOLDER}]フォルダ が存在しないため作成しました')
+    print_log('INFO', f'[{PROCESSED_FOLDER}]フォルダ が存在しないため作成しました', LOG_FILE_PATH)
 
   # メールを移動する
   move_mail_url = f'{GRAPH_ENDPOINT}/users/{MONITOR_EMAIL}/messages/{mail_id}/move'
   move_payload = {'destinationId': processed_folder_id}
   response = requests.post(move_mail_url, headers=headers, data=json.dumps(move_payload))
   response.raise_for_status()
-  print_log('INFO', f'中継処理完了済みメールを[{PROCESSED_FOLDER}]フォルダに移動しました')
+  print_log('INFO', f'中継処理完了済みメールを[{PROCESSED_FOLDER}]フォルダに移動しました', LOG_FILE_PATH)
 
 # ==============================
 # エラー通知メール送信
@@ -295,7 +296,7 @@ def send_error_notification(access_token, error_detail):
     subject=subject,
     body_content=body
   )
-  print_log('INFO', f'エラー通知メールを[{ERROR_MAIL_TO}]宛に送信しました')
+  print_log('INFO', f'エラー通知メールを[{ERROR_MAIL_TO}]宛に送信しました', LOG_FILE_PATH)
 
 # ==============================
 # 一時フォルダ削除が失敗したとき用（まず属性を「書き込み可」にしてから再実行）
@@ -309,7 +310,7 @@ def on_rm_error(func, path, exc_info):
 
 if __name__ == '__main__':
   access_token = None
-  print_log('INFO', '処理を開始します')
+  print_log('INFO', '処理を開始します', LOG_FILE_PATH)
   try:
     # 多重起動防止（既にファイルが存在する場合は処理を終了）
     if not check_and_create_processing_file():
@@ -317,13 +318,13 @@ if __name__ == '__main__':
 
     # アクセストークンの取得
     access_token = get_access_token()
-    print_log('INFO', 'アクセストークンの取得が成功')
+    print_log('INFO', 'アクセストークンの取得が成功', LOG_FILE_PATH)
 
     # 対象メールの取得
     target_mails = fetch_target_mails(access_token)
 
     if not target_mails:
-      print_log('WARN', '対象メールがないため処理を終了します')
+      print_log('WARN', '対象メールがないため処理を終了します', LOG_FILE_PATH)
       exit()
     else:
       # 添付ファイル一時保存ディレクトリをクリーンアップ
@@ -336,7 +337,7 @@ if __name__ == '__main__':
         original_subject = mail['subject']
         # Graph APIのbodyコンテンツはHTML形式の場合があるので、textコンテンツを使用
         original_body = mail['body']['content']
-        print_log('INFO', f'{i}通目のメールを処理します')
+        print_log('INFO', f'{i}通目のメールを処理します', LOG_FILE_PATH)
 
         # メール本文から必要情報を抽出
         parsed_info = parse_mail_body(original_body)
@@ -346,7 +347,7 @@ if __name__ == '__main__':
         extracted_bcc = parsed_info['bcc']
         new_subject = original_subject.replace(TARGET_KEYWORD, '', 1).strip()  # 件名からキーワードを削除
         new_body_content = parsed_info['body']
-        print_log('INFO', f'抽出したメール情報:\n件名：{new_subject}\nFrom: {extracted_from}\nTo: {extracted_to}\nCc: {extracted_cc}\nBcc: {extracted_bcc}')
+        print_log('INFO', f'抽出したメール情報:\n件名：{new_subject}\nFrom: {extracted_from}\nTo: {extracted_to}\nCc: {extracted_cc}\nBcc: {extracted_bcc}', LOG_FILE_PATH)
 
         #  添付ファイルをダウンロード
         downloaded_attachments = download_attachments(access_token, mail_id, TEMP_ATTACHMENT_DIR)
@@ -362,32 +363,32 @@ if __name__ == '__main__':
           recipient_bcc=extracted_bcc,
           attachments=downloaded_attachments
         )
-        print_log('INFO', 'メール中継（再送信）が成功しました!')
+        print_log('INFO', 'メール中継（再送信）が成功しました!', LOG_FILE_PATH)
 
         # このメールに紐づく添付ファイルの一時ファイルをクリーンアップ
         for file_path in downloaded_attachments:
           if os.path.exists(file_path):
             os.remove(file_path)
-            print_log('INFO', '添付ファイル一時保存ファイルを削除しました')
+            print_log('INFO', '添付ファイル一時保存ファイルを削除しました', LOG_FILE_PATH)
         
         # 元メールを処理済みフォルダに移動
         move_mail_to_processed_folder(access_token, mail_id)
         
-        print_log('INFO', ''.join((f'{i}通目のメール中継処理が完了しました\n', '-'*40)))
+        print_log('INFO', ''.join((f'{i}通目のメール中継処理が完了しました\n', '-'*40)), LOG_FILE_PATH)
 
-    print_log('INFO', '全てのメール中継処理が完了しました')
+    print_log('INFO', '全てのメール中継処理が完了しました', LOG_FILE_PATH)
 
   except Exception as e:
     error_detail = f'処理中にエラーが発生しました: {e}\n{traceback.format_exc()}'
-    print_log('ERROR', error_detail)
+    print_log('ERROR', error_detail, LOG_FILE_PATH)
     if access_token:  # トークンが取得できていればエラー通知を試みる
       send_error_notification(access_token, error_detail)
   finally:
     # 添付ファイル一時保存ディレクトリ全体を削除
     if os.path.exists(TEMP_ATTACHMENT_DIR):
       shutil.rmtree(TEMP_ATTACHMENT_DIR, onerror=on_rm_error)
-      print_log('INFO', '添付ファイル一時保存ディレクトリを削除しました')
+      print_log('INFO', '添付ファイル一時保存ディレクトリを削除しました', LOG_FILE_PATH)
     
     # 多重起動防止ファイルを削除
     delete_processing_file()
-    print_log('INFO', '処理を終了します')
+    print_log('INFO', '処理を終了します', LOG_FILE_PATH)
