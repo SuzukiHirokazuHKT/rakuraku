@@ -59,9 +59,11 @@ def print_log(level, msg, log_file_path=None):
   ts = now.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
   print(f'[{ts}][{os.getpid()}][{level}] {msg}')
   
+  """
   if log_file_path:
     with open(log_file_path, 'a') as f:
       f.write(f'[{ts}][{level}] {msg}\n')
+  """
 
 # ==============================
 # 多重起動防止処理
@@ -203,7 +205,7 @@ def download_attachments(access_token, mail_id, download_dir):
 # ==============================
 # Microsoft Graph API でメールを再発射
 # ==============================
-def send_email_graph(access_token, sender_email, recipient_to, subject, body_content, recipient_cc=None, recipient_bcc=None, attachments=None):
+def send_email_graph(access_token, sender_email, recipient_to, subject, body_content, recipient_cc=None, recipient_bcc=None, attachments=None, contentType='Text'):
   headers = {
     'Authorization': f'Bearer {access_token}',
     'Content-Type': 'application/json'
@@ -211,7 +213,7 @@ def send_email_graph(access_token, sender_email, recipient_to, subject, body_con
   message = {
     'subject': subject,
     'body': {
-      'contentType': 'Text', # テキスト形式の本文
+      'contentType': contentType, # デフォルトは「contentType='Text'」
       'content': body_content
     },
     'toRecipients': [{'emailAddress': {'address': addr}} for addr in recipient_to]
@@ -281,6 +283,48 @@ def move_mail_to_processed_folder(access_token, mail_id):
   response = requests.post(move_mail_url, headers=headers, data=json.dumps(move_payload))
   response.raise_for_status()
   print_log('INFO', f'中継処理完了済みメールを[{PROCESSED_FOLDER}]フォルダに移動しました', LOG_FILE_PATH)
+
+# ==============================
+# 完了通知メール送信
+# ==============================
+def send_completion_notification(access_token, org_from, org_to, org_cc, org_bcc, org_subject, org_body):
+
+    HENGE_URL = 'https://console.mo.hdems.com/#/hakuto.co.jp/suspension/self-messages/list'
+    
+    body_lines = (
+        '※本メールは見積システム（楽楽販売）からの自動送信メールです※',
+        '',
+        '',
+        '以下メールの送信が完了しました。',
+        '社外向けメールの場合は、HENGEにてメールの内容確認およびリリースを行ってください。',
+        '',
+        '　【HENGE URL】',
+        f'　　<a href="{HENGE_URL}">{HENGE_URL}</a>',
+        '',
+        'また送信されたメールは、Outlookの「送信済みアイテム」に格納されていますので、',
+        '詳細はそちらにてご確認ください。',
+        '',
+        '--------------------------',
+        f'【差出人】{org_from}',
+        f'【TO 】{";".join(org_to)}',
+        f'【CC 】{";".join(org_cc)}',
+        f'【BCC】{";".join(org_bcc)}',
+        '',
+        f'【件名】{org_subject}',
+        '【本文】※先頭300文字のみ',
+        org_body[:300].replace('\n', '<br>')
+    )
+    body = '<br>'.join(body_lines)
+
+    send_email_graph(
+        access_token=access_token,
+        sender_email=MONITOR_EMAIL,
+        recipient_to=[org_from],
+        subject='【メール送信完了】見積書',
+        body_content=body,
+        contentType='HTML' 
+    )
+    print_log('INFO', f'メール送信完了の通知メールを[{org_from}]宛に送信しました', LOG_FILE_PATH)
 
 # ==============================
 # エラー通知メール送信
@@ -373,6 +417,9 @@ if __name__ == '__main__':
         
         # 元メールを処理済みフォルダに移動
         move_mail_to_processed_folder(access_token, mail_id)
+        
+        # メール送信の実行者にメール送信完了通知を送信
+        send_completion_notification(access_token, extracted_from, extracted_to, extracted_cc, extracted_bcc, new_subject, new_body_content)
         
         print_log('INFO', ''.join((f'{i}通目のメール中継処理が完了しました\n', '-'*40)), LOG_FILE_PATH)
 
