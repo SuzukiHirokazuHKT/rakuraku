@@ -19,7 +19,7 @@ import traceback
 # ==============================
 # 多重起動防止用ファイル（スクリプトと同一ディレクトリに配置）
 PROCESSING_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROCESSING_FILE_NAME = '.Processing'
+PROCESSING_PATH = os.path.join(PROCESSING_FILE_DIR, '.Processing')
 
 # ログファイル
 LOG_FILE_NAME = os.path.basename(__file__).replace('.py', '.log')
@@ -68,8 +68,7 @@ def print_log(level, msg, log_file_path=None):
 # ==============================
 # 多重起動防止処理
 # ==============================
-def check_and_create_processing_file():
-  processing_file_path = os.path.join(PROCESSING_FILE_DIR, PROCESSING_FILE_NAME)
+def check_and_create_processing_file(processing_file_path):
   if os.path.exists(processing_file_path):
     print_log('WARN', 'ロックファイルが存在している（他プロセスで処理が実行中）ため本処理を終了します', LOG_FILE_PATH)
     return False
@@ -79,8 +78,7 @@ def check_and_create_processing_file():
     print_log('INFO', 'ロックファイルを作成しました', LOG_FILE_PATH)
     return True
 
-def delete_processing_file():
-  processing_file_path = os.path.join(PROCESSING_FILE_DIR, PROCESSING_FILE_NAME)
+def delete_processing_file(processing_file_path):
   if os.path.exists(processing_file_path):
     os.remove(processing_file_path)
     print_log('INFO', 'ロックファイルを削除しました', LOG_FILE_PATH)
@@ -357,7 +355,7 @@ if __name__ == '__main__':
   print_log('INFO', '処理を開始します', LOG_FILE_PATH)
   try:
     # 多重起動防止（既にファイルが存在する場合は処理を終了）
-    if not check_and_create_processing_file():
+    if not check_and_create_processing_file(PROCESSING_PATH):
       os._exit(0)  # os._exitだとfinallyは動かない
 
     # アクセストークンの取得
@@ -437,5 +435,5 @@ if __name__ == '__main__':
       print_log('INFO', '添付ファイル一時保存ディレクトリを削除しました', LOG_FILE_PATH)
     
     # 多重起動防止ファイルを削除
-    delete_processing_file()
+    delete_processing_file(PROCESSING_PATH)
     print_log('INFO', '処理を終了します', LOG_FILE_PATH)
