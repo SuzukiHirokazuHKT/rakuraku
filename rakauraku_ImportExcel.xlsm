@@ -1,0 +1,253 @@
+Public Sub Init_InputTable()
+
+    Dim ws As Worksheet
+    Dim lo As ListObject
+    Dim hdr As ListColumn
+    Dim r As ListRow
+    Dim col As ListColumn
+
+    '高速化設定
+    Application.ScreenUpdating = False
+    Application.Calculation = xlCalculationManual
+    Application.EnableEvents = False
+    
+    Set ws = ThisWorkbook.Worksheets("入力シート")
+    Set lo = ws.ListObjects("input")
+    
+    '--- 先頭行のみ ---
+    With lo.ListRows(1).Range
+        .Cells(lo.ListColumns("見積作成日").Index).Formula = "=TODAY()"
+        .Cells(lo.ListColumns("見積番号の設定方法").Index).Value = "自動採番"
+        .Cells(lo.ListColumns("見積番号").Index).Value = ""
+        .Cells(lo.ListColumns("営業担当").Index).Value = ""
+        .Cells(lo.ListColumns("拠点住所").Index).Value = "本社"
+        .Cells(lo.ListColumns("会社名").Index).Value = ""
+        .Cells(lo.ListColumns("部門名").Index).Value = ""
+        .Cells(lo.ListColumns("担当者名").Index).Value = ""
+        .Cells(lo.ListColumns("納期").Index).Value = "別途ご連絡"
+        .Cells(lo.ListColumns("受渡場所").Index).Value = "貴社ご指定場所"
+        .Cells(lo.ListColumns("支払条件").Index).Value = "20日締め翌月末日現金振込み"
+        .Cells(lo.ListColumns("見積有効期間").Index).Value = "向こう1ヶ月間"
+        .Cells(lo.ListColumns("その他の条件").Index).Value = "本御見積価格に消費税等は含まれておりません。"
+        .Cells(lo.ListColumns("その他の条件-2行目").Index).Value = ""
+        .Cells(lo.ListColumns("見積書 全体備考").Index).Value = ""
+        .Cells(lo.ListColumns("メーカー/仕入先名").Index).Value = ""
+        .Cells(lo.ListColumns("仕入通貨").Index).Value = "JPY"
+        .Cells(lo.ListColumns("仕入レート設定").Index).Value = "最新レートを使う"
+        .Cells(lo.ListColumns("仕入：" & vbLf & "独自レート").Index).Value = ""
+        .Cells(lo.ListColumns("見積通貨").Index).Value = "JPY"
+        .Cells(lo.ListColumns("見積レート設定").Index).Value = "最新レートを使う"
+        .Cells(lo.ListColumns("見積：" & vbLf & "独自レート").Index).Value = ""
+        .Cells(lo.ListColumns("加工通貨").Index).Value = ""
+        .Cells(lo.ListColumns("加工レート設定").Index).Value = "最新レートを使う"
+        .Cells(lo.ListColumns("加工：" & vbLf & "独自レート").Index).Value = ""
+        .Cells(lo.ListColumns("見積書タイプ").Index).Value = "日本語 - 縦向き"
+        .Cells(lo.ListColumns("項番の入力設定").Index).Value = "見積金額を印字する行のみ自動連番"
+        .Cells(lo.ListColumns("チャージ率").Index).Value = 0
+        .Cells(lo.ListColumns("目標粗利率").Index).Value = 0
+        .Cells(lo.ListColumns("明細合計欄の印字条件").Index).Value = "見積金額を印字する明細が1以上ある場合"
+        .Cells(lo.ListColumns("見積金額（円の場合）の小数部表示").Index).Value = "表示しない"
+        .Cells(lo.ListColumns("見積金額の小数部の表示桁数").Index).Value = "入力分だけ表示（ただし[全て0]の場合は非表示）"
+        .Cells(lo.ListColumns("全体値引き").Index).Value = "なし"
+        .Cells(lo.ListColumns("【入力】値引き率").Index).Value = ""
+        .Cells(lo.ListColumns("【入力】値引き額_円").Index).Value = ""
+        .Cells(lo.ListColumns("印字する値引き名称").Index).Value = "全体値引"
+        '.Cells(lo.ListColumns("出精値引き").Index).Value = ""
+        '.Cells(lo.ListColumns("【入力】値引き率.").Index).Value = ""
+        '.Cells(lo.ListColumns("【入力】値引き額_円.").Index).Value = ""
+    End With
+    
+    '--- 全行共通 ---
+    For Each r In lo.ListRows
+        With r.Range
+            .Cells(lo.ListColumns("項番").Index).Value = ""
+            .Cells(lo.ListColumns("品名・仕様").Index).Value = ""
+            .Cells(lo.ListColumns("特殊明細").Index).Value = ""
+            .Cells(lo.ListColumns("数量").Index).Value = ""
+            .Cells(lo.ListColumns("単位").Index).Value = ""
+            .Cells(lo.ListColumns("仕入単価").Index).Value = ""
+            .Cells(lo.ListColumns("見積単価").Index).Value = ""
+            .Cells(lo.ListColumns("加工単価").Index).Value = ""
+            .Cells(lo.ListColumns("[見積金額]の印字条件").Index).Value = "必須入力時のみ印字."
+            .Cells(lo.ListColumns("[品名・仕様] の文字配置").Index).Value = "左揃え"
+            .Cells(lo.ListColumns("[見積単価] の表示").Index).Value = "表示する"
+            .Cells(lo.ListColumns("[仕入通貨:明細]を使う").Index).Value = "使わない"
+            .Cells(lo.ListColumns("仕入通貨:明細").Index).Value = ""
+            .Cells(lo.ListColumns("[仕入通貨:明細]レート設定").Index).Value = "最新レートを使う"
+            .Cells(lo.ListColumns("[仕入通貨:明細]" & vbLf & "独自レート").Index).Value = ""
+            .Cells(lo.ListColumns("[ﾁｬｰｼﾞ率:明細]を使う").Index).Value = "使わない"
+            .Cells(lo.ListColumns("ﾁｬｰｼﾞ率:明細").Index).Value = ""
+        End With
+    Next r
+
+Finally:
+    Application.ScreenUpdating = True
+    Application.Calculation = xlCalculationAutomatic
+    Application.EnableEvents = True
+
+    MsgBox "入力シートを初期化しました"
+
+End Sub
+
+
+
+
+Sub ExportCalcTableToCsv()
+    Dim ws As Worksheet
+    Dim lo As ListObject
+    Dim c2 As Long, maxDataRows As Long, exportRows As Long
+    Dim exportRange As Range
+    Dim fPath As Variant
+    Dim fName As String
+    Dim fullName As String
+    
+    '高速化設定
+    Application.ScreenUpdating = False
+    Application.Calculation = xlCalculationManual
+    Application.EnableEvents = False
+    
+    On Error GoTo Finally
+    
+    Set ws = ThisWorkbook.Worksheets("計算シート")
+    Set lo = ws.ListObjects("calc")
+    
+    c2 = CLng(ws.Range("C2").Value)
+    If c2 < 1 Then c2 = 1
+    
+    maxDataRows = lo.DataBodyRange.Rows.Count
+    If c2 > maxDataRows Then c2 = maxDataRows
+    
+    exportRows = c2 + 1
+    Set exportRange = lo.Range.Resize(exportRows)
+    
+    'デフォルトファイル名
+    fName = Format(Date, "yyyymmdd") & "_楽楽販売_見積インポート.csv"
+    
+    '保存ダイアログ（フィルタ操作は行わない）
+    fPath = Application.GetSaveAsFilename( _
+                InitialFileName:=fName, _
+                fileFilter:="CSVファイル (*.csv),*.csv")
+    If fPath = False Then GoTo Finally
+    fullName = CStr(fPath)
+    
+    'UTF-8 / LF で出力
+    Dim stm As Object
+    Dim r As Long, c As Long
+    Dim lineText As String
+    Dim v As String
+    
+    Set stm = CreateObject("ADODB.Stream")
+    With stm
+        .Type = 2          'テキスト
+        .Charset = "UTF-8"
+        .Open
+        For r = 1 To exportRange.Rows.Count
+            lineText = ""
+            For c = 1 To exportRange.Columns.Count
+                If c > 1 Then lineText = lineText & ","
+                v = CStr(exportRange.Cells(r, c).Value)
+                ' 中の " を "" にして、全体を " で囲む
+                v = Replace(v, """", """""")
+                lineText = lineText & """" & v & """"
+            Next c
+            .WriteText lineText, 1   'LF
+        Next r
+        .Position = 0
+        .SaveToFile fullName, 2
+        .Close
+    End With
+
+Finally:
+    Application.ScreenUpdating = True
+    Application.Calculation = xlCalculationAutomatic
+    Application.EnableEvents = True
+    
+    MsgBox "楽楽販売への見積インポート用のCSVファイルを出力しました"
+End Sub
+
+Sub Update_Master()
+    Dim ws As Worksheet
+    Dim lo As ListObject
+    Dim sql As String
+    
+    '高速化設定
+    Application.ScreenUpdating = False
+    Application.Calculation = xlCalculationManual
+    Application.EnableEvents = False
+
+    ' 最新レートマスタ
+    Set ws = ThisWorkbook.Worksheets("【マスタ】最新為替レート")
+    Set lo = ws.ListObjects("【マスタ】最新為替レート")
+    
+    sql = "SELECT *, [為替レート]+'（'+[適応期間]+')' FROM [SAPIFP].[SAPIFP].[TB_RAKUHAN_EXPORT_LATEST_RATE];"
+
+    Call Sync_DWH(lo, sql)
+    
+    ' 社員マスタ
+    Set ws = ThisWorkbook.Worksheets("【マスタ】社員")
+    Set lo = ws.ListObjects("【マスタ】社員")
+    
+    sql = "SELECT * FROM [SAPIFP].[SAPIFP].[TB_RAKUHAN_EXPORT_SHAIN] WHERE [部門：ソートキー] <> '-';"
+
+    Call Sync_DWH(lo, sql)
+    
+Finally:
+    Application.ScreenUpdating = True
+    Application.Calculation = xlCalculationAutomatic
+    Application.EnableEvents = True
+    
+    'MsgBox "「マスタ：社員 ＆ 最新為替レート」を更新しました", vbInformation
+End Sub
+
+
+Sub Sync_DWH(lo As ListObject, sql As String)
+
+    Dim cn As Object        ' ADODB.Connection
+    Dim rs As Object        ' ADODB.Recordset
+    'Dim ws As Worksheet
+    'Dim lo As ListObject
+    Dim headerRow As Range
+    Dim dataRange As Range
+    'Dim sql As String
+
+    ' 接続情報
+    Const SERVER_NAME As String = "sapifp21"
+    Const DB_NAME As String = "SAPIFP"
+    Const USER_ID As String = "sa"
+    Const PASSWORD As String = "VWHN=YjaV#4L"
+
+    ' ヘッダー行（1行目）を除いてデータ部をクリア
+    If lo.DataBodyRange Is Nothing Then
+        ' データが1行も無い場合は何もしない
+    Else
+        lo.DataBodyRange.ClearContents
+    End If
+
+
+    ' 接続と取得
+    Set cn = CreateObject("ADODB.Connection")
+    cn.Open "Provider=SQLOLEDB;" & _
+            "Data Source=" & SERVER_NAME & ";" & _
+            "Initial Catalog=" & DB_NAME & ";" & _
+            "User ID=" & USER_ID & ";" & _
+            "Password=" & PASSWORD & ";"
+
+    Set rs = CreateObject("ADODB.Recordset")
+    rs.Open sql, cn, 0, 1   ' adOpenForwardOnly, adLockReadOnly
+
+    ' テーブルのヘッダー直下に出力
+    Set headerRow = lo.HeaderRowRange
+    headerRow.Offset(1, 0).Resize( _
+        Application.Max(1, lo.DataBodyRange.Rows.Count), _
+        lo.ListColumns.Count).ClearContents
+
+    headerRow.Offset(1, 0).CopyFromRecordset rs
+
+    ' 後始末
+    rs.Close: cn.Close
+    Set rs = Nothing
+    Set cn = Nothing
+
+End Sub
+
+
