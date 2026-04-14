@@ -122,3 +122,35 @@ if __name__ == '__main__':
     column_count = 8
     
     import_csv_to_db(target_table, export_path, column_count)
+    
+    #------------------------------
+    # 仕入先（ﾁｬｰｼﾞ率ありのみ）
+    #------------------------------
+    # CSV出力
+    export_path = os.path.join(export_dir, '仕入先_チャージ率あり.csv')
+    if os.path.exists(export_path):
+        os.remove(export_path)
+    
+    with open(export_path, mode='a', encoding='utf-8') as f:
+        
+        # API実行 ※1回のlimitが200レコードのためそれ毎に実行
+        for offset in (0, 200, 400):
+            body = {
+                'dbSchemaId': '101268',
+                'searchId': '105020',
+                'listId': '101163',
+                'limit': '200',
+                'offset': f'{offset}'
+            }        
+            ret = exec_request(body)
+            print(ret)
+            # 1行目（ヘッダー行）を除いてファイル書き込み
+            for i, line in enumerate(ret.splitlines()):
+                if i == 0:
+                    continue
+                f.write(f'{line}\n')
+    # DBインポート
+    target_table = '[SAPIFP].[SAPIFP].[TB_RAKUHAN_EXPORT_SUPPLIER]'
+    column_count = 4
+    
+    import_csv_to_db(target_table, export_path, column_count)
